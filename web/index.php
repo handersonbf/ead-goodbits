@@ -1,575 +1,625 @@
 <?php
+/*
+Gibbon, Flexible & Open School System
+Copyright (C) 2010, Ross Parker
 
-include_once 'php/functions.php';
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-?>
-<!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta http-equiv="X-UA-Compatible" content="IE=edge">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<meta name="description" content="">
-		<meta name="author" content="">
-		<link rel="shortcut icon" href="./images/favicon.ico" />
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
 
-		<title><?php echo appName(); ?></title>
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http:// www.gnu.org/licenses/>.
+*/
 
-		<!-- Bootstrap core CSS -->
-		<link href="css/bootstrap.css" rel="stylesheet" />
+use Gibbon\Domain\System\ModuleGateway;
+use Gibbon\Domain\DataUpdater\DataUpdaterGateway;
+use Gibbon\Domain\Students\StudentGateway;
+use Gibbon\Domain\User\UserGateway;
 
-		<!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
-		<!--[if lt IE 9]>
-		<script src="js/html5shiv.js"></script>
-		<script src="js/respond.min.js"></script>
-		<![endif]-->
+/**
+ * BOOTSTRAP
+ *
+ * The bootstrapping process creates the essential variables and services for
+ * Gibbon. These are required for all scripts: page views, CLI and API.
+ */
+// Gibbon system-wide include
+require_once './gibbon.php';
 
-		<!-- Custom styles for this template -->
-		<link href="css/style.css?t=<?php echo time(); ?>" rel="stylesheet" />
+// Module include: Messenger has a bug where files have been relying on these
+// functions because this file was included via getNotificationTray()
+// TODO: Fix that :)
+require_once './modules/Messenger/moduleFunctions.php';
 
-<?php if($page == "home") {
-if(strtoupper(substr(PHP_OS, 0, 3)) === 'WIN')
-{
-		include_once('../phpMyAdmin/config.inc.php');
-}
-else
-{
-	if ($configObject->app == "MAMP")
-	{
-		include_once('/Applications/MAMP/bin/phpMyAdmin/config.inc.php');
-	}
-	else
-	{
-		include_once('/Library/Application Support/appsolute/MAMP PRO/phpMyAdmin/config.inc.php');
-	}
-}
-?>
-		<link href="css/screen.css" rel="stylesheet">
-<?php } else if($page == "phpinfo") { ?>
-		<style>
-			table {border-collapse: collapse;}
-			.center {text-align: center;}
-			.center table { margin-left: auto; margin-right: auto; text-align: left;}
-			.center th { text-align: center !important; }
-			td, th { border: 1px solid #000000; font-size: 75%; vertical-align: baseline;}
-			h1 {font-size: 150%;}
-			h2 {font-size: 125%;}
-			.p {text-align: left;}
-			.e {background-color: #ccccff; font-weight: bold; color: #000000;}
-			.h {background-color: #9999cc; font-weight: bold; color: #000000;}
-			.v {background-color: #cccccc; color: #000000;}
-			.vr {background-color: #cccccc; text-align: right; color: #000000;}
-			img {float: right; border: 0px;}
-			hr {width: 600px; background-color: #cccccc; border: 0px; height: 1px; color: #000000;}
-		</style>
-<?php } ?>
-	</head>
-<!-- NAVBAR
-================================================== -->
-	<body>
-		<div class="navbar-wrapper">
-			<div class="container">
-				<div class="navbar navbar-inverse navbar-static-top" role="navigation">
-					<div class="navbar-header">
-						<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-							<span class="sr-only">Toggle navigation</span>
-							<span class="icon-bar"></span>
-							<span class="icon-bar"></span>
-							<span class="icon-bar"></span>
-						</button>
-					</div>
-					<div class="navbar-collapse collapse">
-						<ul class="nav navbar-nav">
-							<li<?php if($page=="home") { ?> class="active"<?php } ?>><a href="index.php?language=<?php echo $language; ?>"><?php echo tr("Start"); ?></a></li>
-							<?php $myWebsite='http://localhost:8888'; if($myWebsite!='') { echo '<li><a class="navbar-brand" href="' . $myWebsite . '" target="_blank">' . tr('My Website') . '</a></li>'; } ?>
-							<li<?php if (strpos('apc eaccelerator xcache phpmyadmin phpliteadmin phpinfo', $page) !== false) { ?> class="active dropdown"<?php } else { ?> class="dropdown" <?php } ?>>
-								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><?php echo tr("Tools") ?> <b class="caret"></b></a>
-								<ul class="dropdown-menu">
+// Setup the Page and Session objects
+$page = $container->get('page');
+$session = $container->get('session');
 
-                                    <li<?php if($page=="phpinfo") { ?> class="active"<?php } ?>><a href="index.php?language=<?php echo $language; ?>&amp;page=phpinfo">phpInfo</a></li>
+$isLoggedIn = $session->has('username') && $session->has('gibbonRoleIDCurrent');
 
-                                    <?php if(version_compare(PHP_VERSION, '5.5.0', '>=')): ?>
-                                        <li><a target="_blank" href="<?php echo "phpmyadmin.php?lang=".tr("phpMyAdminLanguage"); ?>">phpMyAdmin</a></li>
-                                    <?php else: ?>
-                                        <li class="disabled"><a href="#">phpMyAdmin (<?php echo tr("needs at least PHP 5.5.x"); ?>)</a></li>
-                                    <?php endif; ?>
-
-                                    <?php if(version_compare(PHP_VERSION, '5.2.4', '>=') and version_compare(PHP_VERSION, '7.0.99', '<=')): ?>
-                                        <li><a target="_blank" href="<?php echo "/phpLiteAdmin/"; ?>">phpLiteAdmin</a></li>
-                                    <?php else: ?>
-                                        <li class="disabled"><a href="#">phpLiteAdmin (<?php echo tr("needs PHP 5.2.4 to 7.0.x"); ?>)</a></li>
-                                    <?php endif; ?>
-
-                                    <li class="divider"><a href="#"></a></li>
-
-                                    <?php if(extension_loaded('apc')): ?>
-                                        <li><a target="_blank" href="<?php echo "apc.php"; ?>">APC</a></li>
-                                    <?php else: ?>
-                                        <li class="disabled"><a href="#">APC (<?php echo tr("not loaded"); ?>)</a></li>
-                                    <?php endif ?>
-
-                                    <?php if(extension_loaded('eAccelerator')): ?>
-                                        <li><a target="_blank" href="<?php echo "eaccelerator.php"; ?>">eAccelerator</a></li>
-                                    <?php else: ?>
-                                        <li class="disabled"><a href="#">eAccelerator (<?php echo tr("not loaded"); ?>)</a></li>
-                                    <?php endif ?>
-
-                                    <?php if(extension_loaded('XCache')): ?>
-                                        <li><a target="_blank" href="<?php echo "xcache-admin/"; ?>">XCache</a></li>
-                                    <?php else: ?>
-                                        <li class="disabled"><a href="#">XCache (<?php echo tr("not loaded"); ?>)</a></li>
-                                    <?php endif ?>
-
-                                    <?php if(extension_loaded('Zend OPcache')): ?>
-                                        <li><a target="_blank" href="<?php echo "opcache.php"; ?>">OPcache</a></li>
-                                    <?php else: ?>
-                                        <li class="disabled"><a href="#">OPcache (<?php echo tr("not loaded"); ?>)</a></li>
-                                    <?php endif ?>
-
-								</ul>
-							</li>
-							<li><a class="navbar-brand" href="https://www.mamp.info/en/mamp-pro" target="_blank"><?php printf(tr("%s Website"),appName()); ?></a></li>
-							<?php $myFavLink=''; if($myFavLink!='') { echo '<li><a class="navbar-brand" href="' . $myFavLink . '" target="_blank">' . tr('My favorite Link') . '</a></li>'; } ?>
-						</ul><!-- end left -->
-						<ul class="nav navbar-nav navbar-right">
-						<?php if (1 != is_bought()){ ?>
-							<li class="btn-buy"><a style="color:white;" href="<?php echo buyLink(); ?>" target="_blank"><?php echo tr("Buy MAMP PRO"); ?></a></li>
-						<?php } else { ?>
-							<li><a style="margin-top:10px; margin-right:10px;padding:0;" href="http://www.appsolute.de" target="_blank"><img src="images/appsolute-logo.svg" height="30" style="margin:0;padding:0;"/></a></li>
-						<?php } ?>
-						</ul><!-- end right -->
-					</div><!-- end collapse -->
-				</div><!-- end navbar -->
-			</div><!-- end container -->
-		</div><!-- end navbar-wrapper -->
-
-<?php if($page == "phpinfo") { ?>
-		<div class="top100">
-            <div class="frame" style="width:90%; margin:0px auto;">
-				<?php echo $phpinfo; ?>
-			</div>
-		</div>
-<?php } else if($page == "phpmyadmin") { ?>
-      <?php print iFrame("phpmyadmin.php?lang=".tr("phpMyAdminLanguage")); ?>
-<?php } else if($page == "phpliteadmin") { ?>
-      <?php print iFrame("/phpLiteAdmin/"); ?>
-<?php } else if($page == "apc") { ?>
-      <?php print iFrame("apc.php"); ?>
-<?php } else if($page == "eaccelerator") { ?>
-      <?php print iFrame("eaccelerator.php"); ?>
-<?php } else if($page == "xcache") { ?>
-      <?php print iFrame("xcache-admin/"); ?>
-<?php } else { ?>
-
-    <!-- Carousel
-    ================================================== -->
-		<div id="myCarousel" class="carousel slide" data-ride="carousel">
- <?php
-
-	$feed = getFeed();
-	$items = createItemsForCarouselFromFeedObject($feed);
-        $currVersion = isset($feed->currentVersion) ? $feed->currentVersion : $configObject->version;
-        $newsItems = isset($feed->news) ? $feed->news : array();
-
- ?>
-		<!-- Indicators -->
-<?php if (count($items) > 0) { ?>
-			<ol class="carousel-indicators">
-				<li data-target="#myCarousel" data-slide-to="0" class="active"></li>
-<?php for ($i=0; $i<count($items);$i++) { ?>
-				<li data-target="#myCarousel" data-slide-to="<?php echo (1+$i); ?>"></li>
-<?php } ?>
-			</ol>
-<?php } ?>
-			<div class="carousel-inner">
-				<div class="item active <?php echo (appName() == "MAMP PRO" ? "carousel-back-blue" : "carousel-back-grey"); ?> ">
-					<div class="carousel-caption">
-						<div class="container">
-							<table border="0">
-								<tr>
-									<td>
-										<h1><?php printf(tr("Welcome to %s"),appName()); ?></h1>
-										<h2><?php printf(tr("Your version is %s"),$currVersion); ?>
-										<?php if (isset($feed->version) && version_compare($feed->version, $currVersion, '<')) { ?>
-											<?php echo $configObject->version . '&nbsp;&rarr;&nbsp;'; ?><a href="http://www.mamp.info/en/downloads/#mac"><?php printf(tr('Latest version: %s'), $feed->currentVersion); ?></a>
-										<?php } else { ?>
-											<?php echo tr('and up to date.'); ?>
-										<?php } ?>
-										</h2>
-									</td>
-								</tr>
-							</table>
-						</div>
-					</div>
-				</div>
-<?php foreach ($items as $item) {  ?>
-				<div class="item<?php echo isset($item->backgroundClass) ? " ".$item->backgroundClass : ""; ?>"<?php echo isset($item->backgroundImage) ? ' style="background-image:url('.$item->backgroundImage.');background-repeat:repeat;"' : ''; ?>>
-					<div class="carousel-caption">
-						<div class="container">
-							<table border="0">
-								<tr>
-									<td width="30%" class="hidden-xs">
-										<img src="<?php print $item->leftImage;?>" style="width:100%">
-									</td>
-									<td<?php echo isset($item->paddingTop) ?  ' style="padding-top:'.$item->paddingTop.';"' : ''; ?>>
-										<?php print $item->centerHTML; ?>
-									</td>
-									<td width="30%" class="hidden-xs">
-										<img src="<?php print $item->rightImage;?>" style="width:100%">
-									</td>
-								</tr>
-							</table>
-						</div>
-					</div>
-				</div>
-<?php } ?>
-			</div>
-		</div><!-- /.carousel -->
-
-		<div class="container marketing">
-			<div class="row">
-				<div class="col-sm-4">
-					<div class="frame">
-						<?php if (1 != is_bought() || appName() == "MAMP"){ ?>
-							<h1><?php echo tr("Buy MAMP PRO"); ?></h1>
-							<p class="subtitle"><?php echo tr("Buy MAMP PRO SUBTITLE"); ?></p>
-							<p><a class="headerlink" href="https://www.mamp.info/macstore" target="_blank"><img src="images/headers/mamppro.png" class="titleimage img-responsive" /></a></p>
-							<p><?php echo tr("Buy MAMP PRO TEXT"); ?></p>
-							<p>&nbsp;</p>
-						<?php } else { ?>
-							<h1><?php echo tr("MAMP.TV"); ?></h1>
-							<p class="subtitle"><?php echo tr("MAMP.TV SUBTITLE"); ?></p>
-							<p><a class="headerlink" href="http://www.mamp.tv" target="_blank"><img src="images/headers/mamptv.png" class="titleimage img-responsive" /></a></p>
-							<p><?php echo tr("MAMP.TV TEXT"); ?></p>
-							<p>&nbsp;</p>
-						<?php } ?>
-
-						<h2>PHP</h2>
-						<p><?php printf(tr('%sphpinfo%s shows the current configuration of PHP.'), a('phpinfo'),'</a>'); ?></p><br>
-
-						<h2>PHP-Caches</h2>
-						<p>
-							<ul class="caches">
-                            <?php if(extension_loaded('apc')): ?>
-                                <li><a target="_blank" href="<?php echo "apc.php"; ?>">APC</a></li>
-                            <?php else: ?>
-                                <li class="disabled">APC (<?php echo tr("not loaded"); ?>)</li>
-                            <?php endif ?>
-
-                            <?php if(extension_loaded('eAccelerator')): ?>
-                                <li><a target="_blank" href="<?php echo "eaccelerator.php"; ?>">eAccelerator</a></li>
-                            <?php else: ?>
-                                <li class="disabled">eAccelerator (<?php echo tr("not loaded"); ?>)</li>
-                            <?php endif ?>
-
-                            <?php if(extension_loaded('XCache')): ?>
-                                <li><a target="_blank" href="<?php echo "xcache-admin/"; ?>">XCache</a></li>
-                            <?php else: ?>
-                                <li class="disabled">XCache (<?php echo tr("not loaded"); ?>)</li>
-                            <?php endif ?>
-
-                            <?php if(extension_loaded('Zend OPcache')): ?>
-                                <li><a target="_blank" href="<?php echo "opcache.php"; ?>">OPcache</a></li>
-                            <?php else: ?>
-                                <li class="disabled">OPcache (<?php echo tr("not loaded"); ?>)</li>
-                            <?php endif ?>
-							</ul>
-						</p><br>
-
-						<h2>phpMyAdmin</h2>
-                        <?php if(version_compare(PHP_VERSION, '5.5.0', '>=')): ?>
-							<p><?php printf(tr('Configure your MySQL databases with %sphpMyAdmin%s.'), '<a href="phpmyadmin.php?lang='.tr("phpMyAdminLanguage").'" target="_blank">','</a>'); ?></p><br>
-                        <?php else: ?>
-							<p>phpMyAdmin <?php echo tr("needs at least PHP 5.5.x"); ?></p><br>
-                        <?php endif; ?>
-
-						<h2>phpLiteAdmin</h2>
-                        <?php if(version_compare(PHP_VERSION, '5.2.4', '>=') and version_compare(PHP_VERSION, '7.0.99', '<=')): ?>
-							<p><?php printf(tr('Configure your sqlite databases with %sphpLiteAdmin%s.'), a('phpliteadmin'),'</a>'); ?></p><br>
-                        <?php else: ?>
-							<p class="disabled">phpLiteAdmin <?php echo tr("needs PHP 5.2.4 to 7.0.x"); ?></p><br>
-                        <?php endif; ?>
-
-						<!--
-						<h2><?php printf(tr('%s Version'),appName()); ?></h2>
-<?php if (version_compare($configObject->version, $currVersion, '<')) { ?>
-						<h4><?php echo $configObject->version . '&nbsp;&rarr;&nbsp;'; ?><a href="http://www.mamp.info/en/downloads/#mac"><?php printf(tr('Update (%s) available!'), $feed->currentVersion); ?></a></h4>
-<?php } else { ?>
-						<h4><?php echo $configObject->version; ?>&nbsp;&rarr;&nbsp;<?php echo tr('Your version is up-to-date.'); ?></h4>
-<?php } ?>
-						-->
-					</div>
-				</div>
-				<div class="col-sm-4">
-					<div class="frame">
-						<?php if(appName() == "MAMP PRO") { ?>
-							<h1><?php echo tr("Support"); ?></h1>
-							<p class="subtitle"><?php echo tr("Support SUBTITLE"); ?></p>
-							<p><a class="headerlink" href="https://appsolute.zendesk.com/" target="_blank"><img src="images/headers/support.png" class="titleimage img-responsive" /></a></p>
-							<p><?php echo tr("Support TEXT"); ?></p>
-						<?php } else if (1 != is_cloud_bought()){ ?>
-							<h1><?php echo tr("Get MAMP Cloud"); ?></h1>
-							<p class="subtitle"><?php echo tr("Get MAMP Cloud SUBTITLE"); ?></p>
-							<p><a class="headerlink" href="https://www.mamp.info/<?php echo ($language == "German" ? "de" : "en"); ?>/mamp/cloud/" target="_blank"><img src="images/headers/cloud.png" class="titleimage img-responsive" /></a></p>
-							<p><?php echo tr("Get MAMP Cloud TEXT"); ?></p>
-						<?php } else { ?>
-							<h1><?php echo tr("MAMP.TV"); ?></h1>
-							<p class="subtitle"><?php echo tr("MAMP.TV SUBTITLE"); ?></p>
-							<p><a class="headerlink" href="http://www.mamp.tv" target="_blank"><img src="images/headers/mamptv.png" class="titleimage img-responsive" /></a></p>
-							<p><?php echo tr("MAMP.TV TEXT"); ?></p>
-						<?php } ?>
-						<p>&nbsp;</p>
-						<h2>MySQL</h2>
-						<p>
-                        <?php if(version_compare(PHP_VERSION, '5.5.0', '>=')): ?>
-							<?php printf(tr('MySQL can be administered with %sphpMyAdmin%s.'), '<a href="phpmyadmin.php?lang='.tr("phpMyAdminLanguage").'" target="_blank">','</a>'); ?>
-						<?php else: ?>
-							<?php printf(tr('MySQL can be administered with %sphpMyAdmin%s.'), '',''); ?>
-						<?php endif; ?>
-						</p>
-
-						<p><?php echo tr("To connect to the MySQL Server from your own scripts use the following connection parameters:"); ?></p>
-						<p><table class="mysql">
-							<tr>
-								<th><?php echo tr("Host"); ?></th>
-								<td><?php echo $cfg['Servers'][1]['host']; ?></td>
-							</tr>
-							<tr>
-								<th><?php echo tr("Port"); ?></th>
-								<td><?php echo $cfg['Servers'][1]['port'] ? $cfg['Servers'][1]['port'] : "3306"; ?></td>
-							</tr>
-							<tr>
-								<th><?php echo tr("User"); ?></th>
-								<td><?php echo $cfg['Servers'][1]['user']; ?></td>
-							</tr>
-							<tr>
-								<th><?php echo tr("Password"); ?></th>
-								<td><?php echo $cfg['Servers'][1]['password']; ?></td>
-							</tr>
-							<tr>
-								<th><?php echo tr("Socket"); ?></th>
-								<td>/Applications/MAMP/tmp/mysql/mysql.sock</td>
-							</tr>
-						</table></p>
-						<br>
-						<h2><?php echo tr("Examples:"); ?></h2>
-						<ul class="nav nav-pills" role="tablist">
-							<li class="active"><a href="#php56" role="tab" data-toggle="tab">PHP >= 5.6.x</a></li>
-							<li><a href="#php" role="tab" data-toggle="tab">PHP <= 5.5.x</a></li>
-							<li><a href="#python" role="tab" data-toggle="tab">Python</a></li>
-							<li><a href="#perl" role="tab" data-toggle="tab">Perl</a></li>
-						</ul>
-						<div class="tab-content">
-							<div class="tab-pane" id="php">
-							<br>
-							<p><?php echo tr("Connect via network:"); ?></p>
-<pre>
-$user = '<?php echo $cfg['Servers'][1]['user']; ?>';
-$password = '<?php echo $cfg['Servers'][1]['password']; ?>';
-$db = 'inventory';
-$host = 'localhost';
-$port = <?php echo $cfg['Servers'][1]['port'] ? $cfg['Servers'][1]['port'] : "3306" ?>;
-
-$link = mysql_connect(
-   "$host:$port",
-   $user,
-   $password
-);
-$db_selected = mysql_select_db(
-   $db,
-   $link
-);
-</pre>
-
-							<?php if(strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') { ?>
-							<br>
-							<p><?php echo tr("Connect using an UNIX Socket:"); ?></p>
-<pre>
-$user = '<?php echo $cfg['Servers'][1]['user']; ?>';
-$password = '<?php echo $cfg['Servers'][1]['password']; ?>';
-$db = 'inventory';
-$socket = 'localhost:/Applications/MAMP/tmp/mysql/mysql.sock';
-
-$link = mysql_connect(
-   $socket,
-   $user,
-   $password
-);
-$db_selected = mysql_select_db(
-   $db,
-   $link
-);
-</pre>
-							<?php } ?>
-						</div> <!-- PHP tab pane -->
-
-						<div class="tab-pane active" id="php56">
-							<br>
-							<p><?php echo tr("Connect via network:"); ?></p>
-<pre>
-$user = '<?php echo $cfg['Servers'][1]['user']; ?>';
-$password = '<?php echo $cfg['Servers'][1]['password']; ?>';
-$db = 'inventory';
-$host = 'localhost';
-$port = <?php echo $cfg['Servers'][1]['port'] ? $cfg['Servers'][1]['port'] : 3306 ?>;
-
-$link = mysqli_init();
-$success = mysqli_real_connect(
-   $link,
-   $host,
-   $user,
-   $password,
-   $db,
-   $port
-);
-</pre>
-
-							<?php if(strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') { ?>
-							<br>
-							<p><?php echo tr("Connect using an UNIX Socket:"); ?></p>
-<pre>
-$user = '<?php echo $cfg['Servers'][1]['user']; ?>';
-$password = '<?php echo $cfg['Servers'][1]['password']; ?>';
-$db = 'inventory';
-$host = '127.0.0.1';
-$port = <?php echo $cfg['Servers'][1]['port'] ? $cfg['Servers'][1]['port'] : 3306 ?>;
-$socket = 'localhost:/Applications/MAMP/tmp/mysql/mysql.sock';
-
-$link = mysqli_init();
-$success = mysqli_real_connect(
-   $link,
-   $host,
-   $user,
-   $password,
-   $db,
-   $port,
-   $socket
-);
-</pre>
-							<?php } ?>
-						</div> <!-- PHP 5.6 tab pane -->
-
-						<div class="tab-pane" id="python">
-							<br>
-							<p><?php echo tr("Connect via network:"); ?></p>
-<pre>import mysql.connector
-
-config = {
-  'user': '<?php echo $cfg['Servers'][1]['user']; ?>',
-  'password': '<?php echo $cfg['Servers'][1]['password']; ?>',
-  'host': 'localhost:<?php echo $cfg['Servers'][1]['port'] ? $cfg['Servers'][1]['port'] : "3306" ?>',
-  'database': 'inventory',
-  'raise_on_warnings': True,
+/**
+ * MODULE BREADCRUMBS
+ */
+if ($isLoggedIn && $module = $page->getModule()) {
+    $page->breadcrumbs->setBaseURL('index.php?q=/modules/'.$module->name.'/');
+    $page->breadcrumbs->add(__($module->name), $module->entryURL);
 }
 
-link = mysql.connector.connect(**config)
-</pre>
+/**
+ * CACHE & INITIAL PAGE LOAD
+ *
+ * The 'pageLoads' value is used to run code when the user first logs in, and
+ * also to reload cached content based on the $caching value in config.php
+ *
+ * TODO: When we implement routing, these can become part of the HTTP middleware.
+ */
+$session->set('pageLoads', !$session->exists('pageLoads') ? 0 : $session->get('pageLoads', -1)+1);
 
-							<?php if(strtoupper(substr(PHP_OS, 0, 3)) !== 'WIN') { ?>
-							<br>
-							<p><?php echo tr("Connect using an UNIX Socket:"); ?></p>
-<pre>import mysql.connector
-
-config = {
-  'user': '<?php echo $cfg['Servers'][1]['user']; ?>',
-  'password': '<?php echo $cfg['Servers'][1]['password']; ?>',
-  'unix_socket': '/Applications/MAMP/tmp/mysql/mysql.sock',
-  'database': 'inventory',
-  'raise_on_warnings': True,
+$cacheLoad = true;
+$caching = $gibbon->getConfig('caching');
+if (!empty($caching) && is_numeric($caching)) {
+    $cacheLoad = $session->get('pageLoads') % intval($caching) == 0;
 }
 
-link = mysql.connector.connect(**config)
-</pre>
-							<?php } ?>
-						</div> <!-- Python tab pane -->
+/**
+ * SYSTEM SETTINGS
+ *
+ * Checks to see if system settings are set from database. If not, tries to
+ * load them in. If this fails, something horrible has gone wrong ...
+ *
+ * TODO: Move this to the Session creation logic.
+ * TODO: Handle the exit() case with a pre-defined error template.
+ */
+if (!$session->has('systemSettingsSet')) {
+    getSystemSettings($guid, $connection2);
 
-						<div class="tab-pane" id="perl">
-							<br>
-							<p><?php echo tr("Connect via network:"); ?></p>
-<pre>
-use DBI;
+    if (!$session->has('systemSettingsSet')) {
+        exit(__('System Settings are not set: the system cannot be displayed'));
+    }
+}
 
-my $user = '<?php echo $cfg['Servers'][1]['user']; ?>';
-my $password = '<?php echo $cfg['Servers'][1]['password']; ?>';
-my $db = 'inventory';
+/**
+ * USER REDIRECTS
+ *
+ * TODO: When we implement routing, these can become part of the HTTP middleware.
+ */
 
-my $link = DBI->connect(
-   "DBI:mysql:database=$db",
-   $user,
-   $password
+// Check for force password reset flag
+if ($session->has('passwordForceReset')) {
+    if ($session->get('passwordForceReset') == 'Y' and $session->get('address') != 'preferences.php') {
+        $URL = $session->get('absoluteURL').'/index.php?q=preferences.php';
+        $URL = $URL.'&forceReset=Y';
+        header("Location: {$URL}");
+        exit();
+    }
+}
+
+// Redirects after login
+if ($session->get('pageLoads') == 0 && !$session->has('address')) { // First page load, so proceed
+
+    if ($session->has('username')) { // Are we logged in?
+        $roleCategory = getRoleCategory($session->get('gibbonRoleIDCurrent'), $connection2);
+
+        // Deal with attendance self-registration redirect
+        // Are we a student?
+        if ($roleCategory == 'Student') {
+            // Can we self register?
+            if (isActionAccessible($guid, $connection2, '/modules/Attendance/attendance_studentSelfRegister.php')) {
+                // Check to see if student is on site
+                $studentSelfRegistrationIPAddresses = getSettingByScope(
+                    $connection2,
+                    'Attendance',
+                    'studentSelfRegistrationIPAddresses'
+                );
+                $realIP = getIPAddress();
+                if ($studentSelfRegistrationIPAddresses != '' && !is_null($studentSelfRegistrationIPAddresses)) {
+                    $inRange = false ;
+                    foreach (explode(',', $studentSelfRegistrationIPAddresses) as $ipAddress) {
+                        if (trim($ipAddress) == $realIP) {
+                            $inRange = true ;
+                        }
+                    }
+                    if ($inRange) {
+                        $currentDate = date('Y-m-d');
+                        if (isSchoolOpen($guid, $currentDate, $connection2, true)) { // Is school open today
+                            // Check for existence of records today
+                            try {
+                                $data = array('gibbonPersonID' => $session->get('gibbonPersonID'), 'date' => $currentDate);
+                                $sql = "SELECT type FROM gibbonAttendanceLogPerson WHERE gibbonPersonID=:gibbonPersonID AND date=:date ORDER BY timestampTaken DESC";
+                                $result = $connection2->prepare($sql);
+                                $result->execute($data);
+                            } catch (PDOException $e) {
+                                $page->addError($e->getMessage());
+                            }
+
+                            if ($result->rowCount() == 0) {
+                                // No registration yet
+                                // Redirect!
+                                $URL = $session->get('absoluteURL').
+                                    '/index.php?q=/modules/Attendance'.
+                                    '/attendance_studentSelfRegister.php'.
+                                    '&redirect=true';
+                                $session->set('pageLoads', null);
+                                header("Location: {$URL}");
+                                exit;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Deal with Data Updater redirect (if required updates are enabled)
+        $requiredUpdates = getSettingByScope($connection2, 'Data Updater', 'requiredUpdates');
+        if ($requiredUpdates == 'Y') {
+            if (isActionAccessible($guid, $connection2, '/modules/Data Updater/data_updates.php')) { // Can we update data?
+                $redirectByRoleCategory = getSettingByScope(
+                    $connection2,
+                    'Data Updater',
+                    'redirectByRoleCategory'
+                );
+                $redirectByRoleCategory = explode(',', $redirectByRoleCategory);
+
+                // Are we the right role category?
+                if (in_array($roleCategory, $redirectByRoleCategory)) {
+                    $gateway = new DataUpdaterGateway($pdo);
+
+                    $updatesRequiredCount = $gateway->countAllRequiredUpdatesByPerson($session->get('gibbonPersonID'));
+                    
+                    if ($updatesRequiredCount > 0) {
+                        $URL = $session->get('absoluteURL').'/index.php?q=/modules/Data Updater/data_updates.php&redirect=true';
+                        $session->set('pageLoads', null);
+                        header("Location: {$URL}");
+                        exit;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * SIDEBAR SETUP
+ *
+ * TODO: move all of the sidebar session variables to the $page->addSidebarExtra() method.
+ */
+
+// Set sidebar extra content values via Session.
+$session->set('sidebarExtra', '');
+$session->set('sidebarExtraPosition', 'top');
+
+// Check the current Action 'entrySidebar' to see if we should display a sidebar
+$showSidebar = $page->getAction()
+    ? $page->getAction()['entrySidebar'] != 'N'
+    : true;
+
+// Override showSidebar if the URL 'sidebar' param is explicitly set
+if (!empty($_GET['sidebar'])) {
+    $showSidebar = strtolower($_GET['sidebar']) !== 'false';
+}
+
+/**
+ * SESSION TIMEOUT
+ *
+ * Set session duration, which will be passed via JS config to setup the
+ * session timeout. Ensures a minimum session duration of 1200.
+ */
+$sessionDuration = -1;
+if ($isLoggedIn) {
+    $sessionDuration = $session->get('sessionDuration');
+    $sessionDuration = max(intval($sessionDuration), 1200);
+}
+
+/**
+ * LOCALE
+ *
+ * Sets the i18n locale for jQuery UI DatePicker (if the file exists, otherwise
+ * falls back to en-GB)
+ */
+$localeCode = str_replace('_', '-', $session->get('i18n')['code']);
+$localeCodeShort = substr($session->get('i18n')['code'], 0, 2);
+$localePath = $session->get('absolutePath').'/lib/jquery-ui/i18n/jquery.ui.datepicker-%1$s.js';
+
+$datepickerLocale = 'en-GB';
+if ($localeCode === 'en-US' || is_file(sprintf($localePath, $localeCode))) {
+    $datepickerLocale = $localeCode;
+} elseif (is_file(sprintf($localePath, $localeCodeShort))) {
+    $datepickerLocale = $localeCodeShort;
+}
+
+// Allow the URL to override system default from the i18l param
+if (!empty($_GET['i18n']) && $gibbon->locale->getLocale() != $_GET['i18n']) {
+    $data = ['code' => $_GET['i18n']];
+    $sql = "SELECT * FROM gibboni18n WHERE code=:code LIMIT 1";
+
+    if ($result = $pdo->selectOne($sql, $data)) {
+        setLanguageSession($guid, $result, false);
+        $gibbon->locale->setLocale($_GET['i18n']);
+        $gibbon->locale->setTextDomain($pdo);
+        $cacheLoad = true;
+    }
+}
+
+/**
+ * JAVASCRIPT
+ *
+ * The config array defines a set of PHP values that are encoded and passed to
+ * the setup.js file, which handles initialization of js libraries.
+ */
+$javascriptConfig = [
+    'config' => [
+        'datepicker' => [
+            'locale' => $datepickerLocale,
+        ],
+        'thickbox' => [
+            'pathToImage' => $session->get('absoluteURL').'/lib/thickbox/loadingAnimation.gif',
+        ],
+        'tinymce' => [
+            'valid_elements' => getSettingByScope($connection2, 'System', 'allowableHTML'),
+        ],
+        'sessionTimeout' => [
+            'sessionDuration' => $sessionDuration,
+            'message' => __('Your session is about to expire: you will be logged out shortly.'),
+        ]
+    ],
+];
+
+/**
+ * There are currently a handful of scripts that must be in the page <HEAD>.
+ * Otherwise, the preference is to add javascript to the 'foot' at the bottom
+ * of the page, which speeds up rendering by deferring their execution until
+ * after all content has loaded.
+ */
+
+// Set page scripts: head
+$page->scripts->addMultiple([
+    'lv'             => 'lib/LiveValidation/livevalidation_standalone.compressed.js',
+    'jquery'         => 'lib/jquery/jquery.js',
+    'jquery-migrate' => 'lib/jquery/jquery-migrate.min.js',
+    'jquery-ui'      => 'lib/jquery-ui/js/jquery-ui.min.js',
+    'jquery-time'    => 'lib/jquery-timepicker/jquery.timepicker.min.js',
+    'jquery-chained' => 'lib/chained/jquery.chained.min.js',
+    'core'           => 'resources/assets/js/core.min.js',
+], ['context' => 'head']);
+
+// Set page scripts: foot - jquery
+$page->scripts->addMultiple([
+    'jquery-latex'    => 'lib/jquery-jslatex/jquery.jslatex.js',
+    'jquery-form'     => 'lib/jquery-form/jquery.form.js',
+    //This sets the default for en-US, or changes for none en-US
+    'jquery-date'     => $datepickerLocale === 'en-US' ? '' : 'lib/jquery-ui/i18n/jquery.ui.datepicker-'.$datepickerLocale.'.js',
+    'jquery-autosize' => 'lib/jquery-autosize/jquery.autosize.min.js',
+    'jquery-timeout'  => 'lib/jquery-sessionTimeout/jquery.sessionTimeout.min.js',
+    'jquery-token'    => 'lib/jquery-tokeninput/src/jquery.tokeninput.js',
+], ['context' => 'foot']);
+
+// Set page scripts: foot - misc
+$thickboxInline = 'var tb_pathToImage="'.$session->get('absoluteURL').'/lib/thickbox/loadingAnimation.gif";';
+$page->scripts->add('thickboxi', $thickboxInline, ['type' => 'inline']);
+$page->scripts->addMultiple([
+    'thickbox' => 'lib/thickbox/thickbox-compressed.js',
+    'tinymce'  => 'lib/tinymce/tinymce.min.js',
+], ['context' => 'foot']);
+
+// Set page scripts: foot - core
+$page->scripts->add('core-config', 'window.Gibbon = '.json_encode($javascriptConfig).';', ['type' => 'inline']);
+$page->scripts->add('core-setup', 'resources/assets/js/setup.js');
+
+// Register scripts available to the core, but not included by default
+$page->scripts->register('chart', 'lib/Chart.js/2.0/Chart.bundle.min.js', ['context' => 'head']);
+
+// Set system analytics code from session cache
+$page->addHeadExtra($session->get('analytics'));
+
+/**
+ * STYLESHEETS & CSS
+ */
+$page->stylesheets->addMultiple([
+    'jquery-ui'    => 'lib/jquery-ui/css/blitzer/jquery-ui.css',
+    'jquery-time'  => 'lib/jquery-timepicker/jquery.timepicker.css',
+    'thickbox'     => 'lib/thickbox/thickbox.css',
+], ['weight' => -1]);
+
+// Add right-to-left stylesheet
+if ($session->get('i18n')['rtl'] == 'Y') {
+    $page->theme->stylesheets->add('theme-rtl', '/themes/'.$session->get('gibbonThemeName').'/css/main_rtl.css', ['weight' => 1]);
+}
+
+// Set personal, organisational or theme background     
+if (getSettingByScope($connection2, 'User Admin', 'personalBackground') == 'Y' && $session->has('personalBackground')) {
+    $backgroundImage = htmlPrep($session->get('personalBackground'));
+    $backgroundScroll = 'repeat scroll center top';
+} else if ($session->has('organisationBackground')) {
+    $backgroundImage = $session->get('absoluteURL').'/'.$session->get('organisationBackground');
+    $backgroundScroll = 'repeat fixed center top';
+} else {
+    $backgroundImage = $session->get('absoluteURL').'/themes/'.$session->get('gibbonThemeName').'/img/backgroundPage.jpg';
+    $backgroundScroll = 'repeat fixed center top';
+}
+
+$page->stylesheets->add(
+    'personal-background',
+    'body { background: url('.$backgroundImage.') '.$backgroundScroll.' #626cd3!important; }',
+    ['type' => 'inline']
 );
-</pre>
-							<br>
-							<p><?php echo tr("Connect using an UNIX Socket:"); ?></p>
-<pre>
-use DBI;
 
-my $user = '<?php echo $cfg['Servers'][1]['user']; ?>';
-my $password = '<?php echo $cfg['Servers'][1]['password']; ?>';
-my $db = 'inventory';
-my $host = 'localhost';
-my $port = <?php echo $cfg['Servers'][1]['port'] ? $cfg['Servers'][1]['port'] : "3306" ?>;
+$page->stylesheets->add('theme-dev', 'resources/assets/css/theme.min.css');
+$page->stylesheets->add('core', 'resources/assets/css/core.min.css', ['weight' => 10]);
 
-my $link = DBI->connect(
-   "DBI:mysql:database=$db;host=$host;port=$port",
-   $user,
-   $password
-);
-</pre>
-							</div> <!-- Perl tab pane -->
-						</div> <!-- tab content -->
-					</div>
-					<!--
-					<div class="frame">
-						<a href="http://www.appsolute.de" target="_blank"><img src="images/appsolute-logo.svg" height="30" alt="appsolute GmbH"/></a><br />
-						<?php printf(tr("<b>MAMP</b> and <b>MAMP PRO</b> are developed and distributed by %s."),'<a href="http://www.appsolute.de" target="_blank">appsolute GmbH</a>'); ?><br /><br />
-						<img src="images/logos.png" height="175" alt="Apache, Nginx, MySQL, Memcached, PHP, Perl, Python, Ruby"/>
-					</div>
-					-->
-				</div>
-				<div class="col-sm-4">
-					<div class="frame">
-						<h1><?php echo tr('MAMP News'); ?></h1>
-						<p class="subtitle"><?php echo tr("MAMP News SUBTITLE"); ?></p>
-						<p><a class="headerlink" href="https://twitter.com/mamp_en" target="_blank"><img src="images/headers/news.png" class="titleimage img-responsive" /></a></p>
-						<a class="twitter-timeline" data-width="400" data-theme="light" data-tweet-limit="5" href="https://twitter.com/mamp_en?ref_src=twsrc%5Etfw">Tweets by mamp_en</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-					</div>
-				</div>
-			</div><!-- /.row -->
-			<!-- FOOTER -->
-			<footer style="margin-top:40px;">
-				<p class="pull-right"><a href="#"><?php echo tr("Back to top"); ?></a></p>
-				<p>&copy; 2013 - 2018 <a href="http://www.appsolute.de" target="_blank">appsolute GmbH</a></p>
-			</footer>
-		</div><!-- /.container -->
+/**
+ * USER CONFIGURATION
+ *
+ * This should be moved to a one-time process to run after login, which can be
+ * handled by HTTP middleware.
+ */
 
-<?php } ?>
-	    <!-- Bootstrap core JavaScript
-    	================================================== -->
-	    <!-- Placed at the end of the document so the pages load faster -->
-    	<script src="js/jquery-1.10.2.min.js"></script>
-	    <script src="js/bootstrap.min.js"></script>
-<?php if($page == "home") { ?>
-	    <script type="text/javascript">
+// Try to auto-set user's calendar feed if not set already
+if ($session->exists('calendarFeedPersonal') && $session->exists('googleAPIAccessToken')) {
+    if (!$session->has('calendarFeedPersonal') && $session->has('googleAPIAccessToken')) {
+        $service = $container->get('Google_Service_Calendar');
+        try {
+            $calendar = $service->calendars->get('primary');
+        } catch (\Google_Service_Exception $e) {}
 
-			function checkNeedsUpdate()
-			{
-				$.get( "feed/needsUpdate.txt", function( data ) {
-				if (data == 1)
-				{
-					location.reload();
-				}});
-			}
+        if (!empty($calendar['id'])) {
+            $session->set('calendarFeedPersonal', $calendar['id']);
+            $container->get(UserGateway::class)->update($session->get('gibbonPersonID'), [
+                'calendarFeedPersonal' => $calendar['id'],
+            ]);
+        }
+    }
+}
 
-			setTimeout(function(){checkNeedsUpdate();},2000);
+// Get house logo and set session variable, only on first load after login (for performance)
+if ($session->get('pageLoads') == 0 and $session->has('username') and !$session->has('gibbonHouseIDLogo')) {
+    $dataHouse = array('gibbonHouseID' => $session->get('gibbonHouseID'));
+    $sqlHouse = 'SELECT logo, name FROM gibbonHouse
+        WHERE gibbonHouseID=:gibbonHouseID';
+    $house = $pdo->selectOne($sqlHouse, $dataHouse);
 
-    	</script>
-<?php } ?>
-	</body>
-</html>
-<?php
+    if (!empty($house)) {
+        $session->set('gibbonHouseIDLogo', $house['logo']);
+        $session->set('gibbonHouseIDName', $house['name']);
+    }
+}
 
-downloadFeed();
-write_tr();
+// Show warning if not in the current school year
+// TODO: When we implement routing, these can become part of the HTTP middleware.
+if ($isLoggedIn) {
+    if ($session->get('gibbonSchoolYearID') != $session->get('gibbonSchoolYearIDCurrent')) {
+        $page->addWarning('<b><u>'.sprintf(__('Warning: you are logged into the system in school year %1$s, which is not the current year.'), $session->get('gibbonSchoolYearName')).'</b></u>'.__('Your data may not look quite right (for example, students who have left the school will not appear in previous years), but you should be able to edit information from other years which is not available in the current year.'));
+    }
+}
 
-?>
+/**
+ * RETURN PROCESS
+ *
+ * Adds an alert to the index based on the URL 'return' parameter.
+ *
+ * TODO: Remove all returnProcess() from pages. We could add a method to the
+ * Page class to allow them to register custom messages, or use Session flash
+ * to add the message directly from the Process pages.
+ */
+if (!$session->has('address') && !empty($_GET['return'])) {
+    $customReturns = [
+        'success1' => __('Password reset was successful: you may now log in.')
+    ];
+
+    if ($alert = returnProcessGetAlert($_GET['return'], '', $customReturns)) {
+        $page->addAlert($alert['context'], $alert['text']);
+    }
+}
+
+/**
+ * MENU ITEMS & FAST FINDER
+ *
+ * TODO: Move this somewhere more sensible.
+ */
+if ($isLoggedIn) {
+    if ($cacheLoad || !$session->has('fastFinder')) {
+        $templateData = getFastFinder($connection2, $guid);
+        $templateData['enrolmentCount'] = $container->get(StudentGateway::class)->getStudentEnrolmentCount($session->get('gibbonSchoolYearID'));
+
+        $fastFinder = $page->fetchFromTemplate('finder.twig.html', $templateData);
+        $session->set('fastFinder', $fastFinder);
+    }
+
+    $moduleGateway = $container->get(ModuleGateway::class);
+
+    if ($cacheLoad || !$session->has('menuMainItems')) {
+        $menuMainItems = $moduleGateway->selectModulesByRole($session->get('gibbonRoleIDCurrent'))->fetchGrouped();
+
+        foreach ($menuMainItems as $category => &$items) {
+            foreach ($items as &$item) {
+                $modulePath = '/modules/'.$item['name'];
+                $entryURL = isActionAccessible($guid, $connection2, $modulePath.'/'.$item['entryURL'])
+                    ? $item['entryURL']
+                    : $item['alternateEntryURL'];
+
+                $item['url'] = $session->get('absoluteURL').'/index.php?q='.$modulePath.'/'.$entryURL;
+            }
+        }
+
+        $session->set('menuMainItems', $menuMainItems);
+    }
+
+    if ($page->getModule()) {
+        $currentModule = $page->getModule()->getName();
+        $menuModule = $session->get('menuModuleName');
+        
+        if ($cacheLoad || !$session->has('menuModuleItems') || $currentModule != $menuModule) {
+            $menuModuleItems = $moduleGateway->selectModuleActionsByRole($page->getModule()->getID(), $session->get('gibbonRoleIDCurrent'))->fetchGrouped();
+        } else {
+            $menuModuleItems = $session->get('menuModuleItems');
+        }
+        
+        // Update the menu items to indicate the current active action
+        foreach ($menuModuleItems as $category => &$items) {
+            foreach ($items as &$item) {
+                $urlList = array_map('trim', explode(',', $item['URLList']));
+                $item['active'] = in_array($session->get('action'), $urlList);
+                $item['url'] = $session->get('absoluteURL').'/index.php?q=/modules/'
+                        .$item['moduleName'].'/'.$item['entryURL'];
+            }
+        }
+
+        $session->set('menuModuleItems', $menuModuleItems);
+        $session->set('menuModuleName', $currentModule);
+    } else {
+        $session->forget(['menuModuleItems', 'menuModuleName']);
+    }
+}
+
+/**
+ * TEMPLATE DATA
+ *
+ * These values are merged with the Page class settings & content, then passed
+ * into the template engine for rendering. They're a work in progress, but once
+ * they're more finalized we can document them for theme developers.
+ */
+$header = $container->get(Gibbon\UI\Components\Header::class);
+
+$page->addData([
+    'isLoggedIn'        => $isLoggedIn,
+    'gibbonThemeName'   => $session->get('gibbonThemeName'),
+    'gibbonHouseIDLogo' => $session->get('gibbonHouseIDLogo'),
+    'organisationLogo'  => $session->get('organisationLogo'),
+    'minorLinks'        => $header->getMinorLinks($cacheLoad),
+    'notificationTray'  => $header->getNotificationTray($cacheLoad),
+    'sidebar'           => $showSidebar,
+    'version'           => $gibbon->getVersion(),
+    'versionName'       => 'v'.$gibbon->getVersion().($session->get('cuttingEdgeCode') == 'Y'? 'dev' : ''),
+    'rightToLeft'       => $session->get('i18n')['rtl'] == 'Y',
+]);
+
+if ($isLoggedIn) {
+    $page->addData([
+        'menuMain'   => $session->get('menuMainItems', []),
+        'menuModule' => $session->get('menuModuleItems', []),
+        'fastFinder' => $session->get('fastFinder'),
+    ]);
+}
+
+/**
+ * GET PAGE CONTENT
+ *
+ * TODO: move queries into Gateway classes.
+ * TODO: rewrite dashboards as template files.
+ */
+if (!$session->has('address')) {
+    // Welcome message
+    if (!$isLoggedIn) {
+        // Create auto timeout message
+        if (isset($_GET['timeout']) && $_GET['timeout'] == 'true') {
+            $page->addWarning(__('Your session expired, so you were automatically logged out of the system.'));
+        }
+
+        $templateData = [
+            'indexText'                 => $session->get('indexText'),
+            'organisationName'          => $session->get('organisationName'),
+            'publicStudentApplications' => getSettingByScope($connection2, 'Application Form', 'publicApplications') == 'Y',
+            'publicStaffApplications'   => getSettingByScope($connection2, 'Staff Application Form', 'staffApplicationFormPublicApplications') == 'Y',
+            'makeDepartmentsPublic'     => getSettingByScope($connection2, 'Departments', 'makeDepartmentsPublic') == 'Y',
+            'makeUnitsPublic'           => getSettingByScope($connection2, 'Planner', 'makeUnitsPublic') == 'Y',
+        ];
+
+        // Get any elements hooked into public home page, checking if they are turned on
+        $sql = "SELECT * FROM gibbonHook WHERE type='Public Home Page' ORDER BY name";
+        $hooks = $pdo->select($sql)->fetchAll();
+
+        foreach ($hooks as $hook) {
+            $options = unserialize(str_replace("'", "\'", $hook['options']));
+            $check = getSettingByScope($connection2, $options['toggleSettingScope'], $options['toggleSettingName']);
+            if ($check == $options['toggleSettingValue']) { // If its turned on, display it
+                $options['text'] = stripslashes($options['text']);
+                $templateData['indexHooks'][] = $options;
+            }
+        }
+
+        $page->writeFromTemplate('welcome.twig.html', $templateData);
+        
+    } else {
+        // Custom content loader
+        if (!$session->exists('index_custom.php')) {
+            $globals = [
+                'guid'        => $guid,
+                'connection2' => $connection2,
+            ];
+
+            $session->set('index_custom.php', $page->fetchFromFile('./index_custom.php', $globals));
+        }
+        
+        if ($session->has('index_custom.php')) {
+            $page->write($session->get('index_custom.php'));
+        }
+
+        // DASHBOARDS!
+        $category = getRoleCategory($session->get('gibbonRoleIDCurrent'), $connection2);
+        
+        switch ($category) {
+            case 'Parent':
+                $page->write($container->get(Gibbon\UI\Dashboard\ParentDashboard::class)->getOutput());
+                break;
+            case 'Student':
+                $page->write($container->get(Gibbon\UI\Dashboard\StudentDashboard::class)->getOutput());
+                break;
+            case 'Staff':
+                $page->write($container->get(Gibbon\UI\Dashboard\StaffDashboard::class)->getOutput());
+                break;
+            default:
+                $page->write('<div class="error">'.__('Your current role type cannot be determined.').'</div>');
+        }
+    }
+} else {
+    $address = trim($page->getAddress(), ' /');
+
+    if ($page->isAddressValid($address) == false) {
+        $page->addError(__('Illegal address detected: access denied.'));
+    } else {
+        // Pass these globals into the script of the included file, for backwards compatibility.
+        // These will be removed when we begin the process of ooifying action pages.
+        $globals = [
+            'guid'        => $guid,
+            'gibbon'      => $gibbon,
+            'version'     => $version,
+            'pdo'         => $pdo,
+            'connection2' => $connection2,
+            'autoloader'  => $autoloader,
+            'container'   => $container,
+            'page'        => $page,
+        ];
+
+        if (is_file('./'.$address)) {
+            $page->writeFromFile('./'.$address, $globals);
+        } else {
+            $page->writeFromFile('./error.php', $globals);
+        }
+    }
+}
+
+/**
+ * GET SIDEBAR CONTENT
+ *
+ * TODO: rewrite the Sidebar class as a template file.
+ */
+$sidebarContents = '';
+if ($showSidebar) {
+    $page->addSidebarExtra($session->get('sidebarExtra'));
+    $session->set('sidebarExtra', '');
+
+    $page->addData([
+        'sidebarContents' => $container->get(Gibbon\UI\Components\Sidebar::class)->getOutput(),
+        'sidebarPosition' => $session->get('sidebarExtraPosition'),
+    ]);
+}
+
+
+/**
+ * DONE!!
+ */
+echo $page->render('index.twig.html');
